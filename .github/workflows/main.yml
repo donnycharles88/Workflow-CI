@@ -21,55 +21,67 @@ jobs:
         with:
           python-version: "3.12.7"
 
-      # 3️⃣ Check Env Variables (opsional)
+      # 3️⃣ Check Env Variables (optional)
       - name: Check Env
         run: |
           echo "Dataset URL: $CSV_URL"
 
-      # 4️⃣ Install dependencies
+      # 4️⃣ Verify dataset exists
+      - name: Verify dataset exists
+        run: |
+          ls -l MLProject/processed_dataset.csv || echo "Dataset not found!"
+          if [ ! -f MLProject/processed_dataset.csv ]; then exit 1; fi
+
+      # 5️⃣ Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mlflow pandas scikit-learn numpy matplotlib seaborn joblib
+          pip install mlflow==2.19.0 pandas==2.2.3 scikit-learn==1.6.0 numpy==1.26.4 matplotlib==3.8.0 seaborn==0.12.2 joblib scipy==1.14.1 dagshub==0.5.1
 
-      # 5️⃣ Run MLflow Project
+      # 6️⃣ Clean MLflow tracking store
+      - name: Clean MLflow tracking store
+        run: |
+          rm -rf MLProject/mlruns
+          mkdir -p MLProject/mlruns
+
+      # 7️⃣ Run MLflow Project
       - name: Run MLflow Project
         run: |
           cd MLProject
           mlflow run . --env-manager=local
 
-      # 6️⃣ Get latest MLflow run_id
+      # 8️⃣ Get latest MLflow run_id
       - name: Get latest MLflow run_id
         run: |
           RUN_ID=$(ls -td MLProject/mlruns/0/*/ | head -n 1 | cut -d'/' -f4)
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "Latest run_id: $RUN_ID"
 
-      # 7️⃣ Upload model artifact to GitHub
+      # 9️⃣ Upload model artifact to GitHub
       - name: Upload model artifact
         uses: actions/upload-artifact@v4
         with:
           name: trained-model
           path: MLProject/mlruns/0/${{ env.RUN_ID }}/artifacts/model/
 
-      # 8️⃣ Build Docker Model
+      # 1️⃣0️⃣ Build Docker Model
       - name: Build Docker Model
         run: |
           mlflow models build-docker --model-uri "file://$PWD/MLProject/mlruns/0/${{ env.RUN_ID }}/artifacts/model" --name "submission"
 
-      # 9️⃣ Login to Docker Hub
+      # 1️⃣1️⃣ Login to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      # 🔟 Tag Docker image
+      # 1️⃣2️⃣ Tag Docker Image
       - name: Tag Docker Image
         run: |
           docker tag submission ${{ secrets.DOCKER_HUB_USERNAME }}/submission:latest
 
-      # 1️⃣1️⃣ Push Docker image to Docker Hub
+      # 1️⃣3️⃣ Push Docker Image to Docker Hub
       - name: Push Docker Image
         run: |
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/submission:latest
