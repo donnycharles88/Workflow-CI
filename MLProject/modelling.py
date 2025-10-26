@@ -59,67 +59,68 @@ def train_model_with_tuning():
     mlflow.set_tracking_uri("file:///home/runner/work/Workflow-CI/Workflow-CI/mlruns")
     mlflow.set_experiment("Computer Prices")
 
-    # Start run manually without autolog
-    with mlflow.start_run(run_name="RandomForest_ComputerPrice"):
-        # Manual logging of parameters (no autolog)
-        mlflow.log_param("model", "RandomForestRegressor")
-        mlflow.log_param("random_state", 42)
-        mlflow.log_param("cv_folds", 3)
-        mlflow.log_param("scoring_metric", "r2")
+    # ✅ DO NOT USE start_run()
+    # Let MLflow CLI manage the run
 
-        # GridSearchCV for hyperparameter tuning
-        grid_search = GridSearchCV(
-            estimator=RandomForestRegressor(random_state=42),
-            param_grid=param_grid,
-            cv=3,
-            scoring='r2',
-            n_jobs=-1
-        )
-        grid_search.fit(X_train, y_train)
+    # Log parameters directly (no need for context manager)
+    mlflow.log_param("model", "RandomForestRegressor")
+    mlflow.log_param("random_state", 42)
+    mlflow.log_param("cv_folds", 3)
+    mlflow.log_param("scoring_metric", "r2")
 
-        best_model = grid_search.best_estimator_
-        best_params = grid_search.best_params_
+    # GridSearchCV for hyperparameter tuning
+    grid_search = GridSearchCV(
+        estimator=RandomForestRegressor(random_state=42),
+        param_grid=param_grid,
+        cv=3,
+        scoring='r2',
+        n_jobs=-1
+    )
+    grid_search.fit(X_train, y_train)
 
-        # Manually log best parameters
-        mlflow.log_param("best_n_estimators", best_params['n_estimators'])
-        mlflow.log_param("best_max_depth", best_params['max_depth'])
+    best_model = grid_search.best_estimator_
+    best_params = grid_search.best_params_
 
-        # Predict and evaluate
-        y_pred = best_model.predict(X_test)
-        mae = mean_absolute_error(y_test, y_pred)
-        mse = mean_squared_error(y_test, y_pred)
-        r2 = r2_score(y_test, y_pred)
+    # Manually log best parameters
+    mlflow.log_param("best_n_estimators", best_params['n_estimators'])
+    mlflow.log_param("best_max_depth", best_params['max_depth'])
 
-        # Manually log metrics
-        mlflow.log_metric("MAE", mae)
-        mlflow.log_metric("MSE", mse)
-        mlflow.log_metric("R2", r2)
+    # Predict and evaluate
+    y_pred = best_model.predict(X_test)
+    mae = mean_absolute_error(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
 
-        print(f"✅ Best Parameters: {best_params}")
-        print(f"✅ MAE: {mae:.4f}")
-        print(f"✅ MSE: {mse:.4f}")
-        print(f"✅ R²: {r2:.4f}")
+    # Log metrics
+    mlflow.log_metric("MAE", mae)
+    mlflow.log_metric("MSE", mse)
+    mlflow.log_metric("R2", r2)
 
-        # Save model
-        model_path = create_timestamped_path("best_model_rf")
-        clean_folder(model_path)
-        mlflow.sklearn.save_model(sk_model=best_model, path=model_path)
-        mlflow.log_artifacts(model_path, artifact_path="model")
+    print(f"✅ Best Parameters: {best_params}")
+    print(f"✅ MAE: {mae:.4f}")
+    print(f"✅ MSE: {mse:.4f}")
+    print(f"✅ R²: {r2:.4f}")
 
-        # Residual plot
-        residuals = y_test - y_pred
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ax.scatter(y_pred, residuals, alpha=0.6)
-        ax.hlines(0, xmin=min(y_pred), xmax=max(y_pred), color='red', linestyles='--')
-        ax.set_xlabel('Predicted Price')
-        ax.set_ylabel('Residuals')
-        ax.set_title(f'Residual Plot (R2: {r2:.4f})')
+    # Save model
+    model_path = create_timestamped_path("best_model_rf")
+    clean_folder(model_path)
+    mlflow.sklearn.save_model(sk_model=best_model, path=model_path)
+    mlflow.log_artifacts(model_path, artifact_path="model")
 
-        plot_filename = create_timestamped_path("residual_plot") + ".png"
-        plt.savefig(plot_filename)
-        plt.close(fig)
+    # Residual plot
+    residuals = y_test - y_pred
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.scatter(y_pred, residuals, alpha=0.6)
+    ax.hlines(0, xmin=min(y_pred), xmax=max(y_pred), color='red', linestyles='--')
+    ax.set_xlabel('Predicted Price')
+    ax.set_ylabel('Residuals')
+    ax.set_title(f'Residual Plot (R2: {r2:.4f})')
 
-        mlflow.log_artifact(plot_filename, artifact_path="model")
+    plot_filename = create_timestamped_path("residual_plot") + ".png"
+    plt.savefig(plot_filename)
+    plt.close(fig)
+
+    mlflow.log_artifact(plot_filename, artifact_path="model")
 
 # Run the training function
 if __name__ == "__main__":
