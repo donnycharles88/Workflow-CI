@@ -10,10 +10,11 @@ jobs:
   build-train:
     runs-on: ubuntu-latest
     
-    # Set MLFLOW_TRACKING_URI secara global untuk semua langkah
-    # agar MLflow tahu di mana mencari folder 'mlruns'.
+    # Set MLFLOW_TRACKING_URI menggunakan path absolut dari workspace.
+    # Ini adalah cara yang paling andal untuk memastikan MLflow dapat menemukan folder 'mlruns' 
+    # di lingkungan GitHub Actions.
     env:
-      MLFLOW_TRACKING_URI: ./MLProject/mlruns
+      MLFLOW_TRACKING_URI: ${{ github.workspace }}/MLProject/mlruns
 
     steps:
       - name: Checkout repository
@@ -34,11 +35,12 @@ jobs:
           pip install mlflow pandas scikit-learn numpy
 
       - name: Run MLflow Project (Training & Logging)
-        # Menjalankan dari direktori MLProject/ akan membuat data di ./MLProject/mlruns
+        # Menjalankan dari direktori MLProject/ akan membuat data di lokasi 
+        # yang ditunjuk oleh MLFLOW_TRACKING_URI yang baru (menggunakan path absolut).
         run: |
           cd MLProject
-          mlflow run . --env-manager=local | tee modelling.log
-          # Pindahkan log ke root agar bisa diakses di langkah selanjutnya
+          # Mengganti 'tee' dengan redirect sederhana untuk mencegah masalah buffering
+          mlflow run . --env-manager=local > modelling.log
           mv modelling.log ..
 
       # Ambil run_id dari log yang sudah dipindahkan ke root
@@ -54,13 +56,13 @@ jobs:
 
       # Build Docker Model
       - name: Build Docker Model
-        # MLFLOW_TRACKING_URI sudah disetel di bagian 'env' global
+        # MLFLOW_TRACKING_URI yang absolut sudah disetel.
         run: |
           if [ -z "${{ env.RUN_ID }}" ]; then
             echo "❌ RUN_ID kosong, tidak bisa build Docker model"
             exit 1
           fi
-          # Perintah ini sekarang akan mencari run ID di './MLProject/mlruns'
+          # Perintah ini sekarang harus berhasil menemukan Run ID
           mlflow models build-docker --model-uri "runs:/${{ env.RUN_ID }}/model" --name "submission"
 
       # Login to Docker Hub
