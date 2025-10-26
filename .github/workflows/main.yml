@@ -40,7 +40,7 @@ jobs:
       # Build Docker Model
       - name: Build Docker Model
         run: |
-          mlflow models build-docker --model-uri "runs:/$RUN_ID/model" --name "submission" 
+          mlflow models build-docker --model-uri "runs:/${{ env.RUN_ID }}/model" --name "submission" 
 
       # Login to Docker Hub
       - name: Log in to Docker Hub
