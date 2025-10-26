@@ -32,9 +32,9 @@ jobs:
           cd MLProject
           mlflow run . --env-manager=local
       # Get latest run_id
-      - name: Get latest MLflow run_id
+      - name: Ambil run_id dari file
         run: |
-          RUN_ID=$(ls -td mlruns/0/*/ | head -n 1 | cut -d'/' -f3)
+          RUN_ID=$(cat MLProject/run_id.txt)
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "Latest run_id: $RUN_ID"
       # Build Docker Model
