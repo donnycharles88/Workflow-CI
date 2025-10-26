@@ -1,0 +1,16 @@
+name: computer_price_prediction
+channels:
+  - conda-forge
+dependencies:
+- python=3.12.7
+- pip<=24.2
+- pip:
+  - numpy==2.2.1
+  - mlflow==2.19.0
+  - pandas==2.2.3
+  - scikit-learn==1.6.0
+  - joblib
+  - scipy==1.14.1
+  - dagshub==0.5.1
+  - seaborn==0.12.2
+  - matplotlib==3.8.0

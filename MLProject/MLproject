@@ -1,0 +1,12 @@
+name: "Membangun_Model_Computer_Price"
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      n_estimators: {type: int, default: 100}
+      max_depth: {type: int, default: 10}
+      data_path: {type: str, default: "processed_dataset.csv"}
+    command: >
+      python modelling.py {n_estimators} {max_depth} {data_path}
