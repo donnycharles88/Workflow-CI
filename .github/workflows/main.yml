@@ -77,7 +77,7 @@ jobs:
         run: |
           docker tag submission ${{ secrets.DOCKER_HUB_USERNAME }}/submission:latest
 
-      # Push Docker image to Docker Hub
+      # Push Docker image
       - name: Push Docker Image
         run: |
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/submission:latest
