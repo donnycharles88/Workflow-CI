@@ -1,0 +1,75 @@
+name: MLflow CI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-train:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2️⃣ Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12.7"
+
+      # 3️⃣ Check Env Variables (opsional)
+      - name: Check Env
+        run: |
+          echo "Dataset URL: $CSV_URL"
+
+      # 4️⃣ Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mlflow pandas scikit-learn numpy matplotlib seaborn joblib
+
+      # 5️⃣ Run MLflow Project
+      - name: Run MLflow Project
+        run: |
+          cd MLProject
+          mlflow run . --env-manager=local
+
+      # 6️⃣ Get latest MLflow run_id
+      - name: Get latest MLflow run_id
+        run: |
+          RUN_ID=$(ls -td MLProject/mlruns/0/*/ | head -n 1 | cut -d'/' -f4)
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "Latest run_id: $RUN_ID"
+
+      # 7️⃣ Upload model artifact to GitHub
+      - name: Upload model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: MLProject/mlruns/0/${{ env.RUN_ID }}/artifacts/model/
+
+      # 8️⃣ Build Docker Model
+      - name: Build Docker Model
+        run: |
+          mlflow models build-docker --model-uri "file://$PWD/MLProject/mlruns/0/${{ env.RUN_ID }}/artifacts/model" --name "submission"
+
+      # 9️⃣ Login to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      # 🔟 Tag Docker image
+      - name: Tag Docker Image
+        run: |
+          docker tag submission ${{ secrets.DOCKER_HUB_USERNAME }}/submission:latest
+
+      # 1️⃣1️⃣ Push Docker image to Docker Hub
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/submission:latest
