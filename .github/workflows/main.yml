@@ -31,16 +31,24 @@ jobs:
         run: |
           cd MLProject
           mlflow run . --env-manager=local
+      - name: Copy run_id artifact
+        run: |
+          cp /tmp/*/run_info/run_id.txt MLProject/run_id.txt || echo "run_id.txt not found"
       # Get latest run_id
       - name: Ambil run_id dari file
         run: |
           RUN_ID=$(cat MLProject/run_id.txt)
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "Latest run_id: $RUN_ID"
+      
       # Build Docker Model
       - name: Build Docker Model
         run: |
-          mlflow models build-docker --model-uri "runs:/${{ env.RUN_ID }}/model" --name "submission" 
+          if [ -z "${{ env.RUN_ID }}" ]; then
+            echo "❌ RUN_ID kosong, tidak bisa build Docker model"
+            exit 1
+          fi
+          mlflow models build-docker --model-uri "runs:/${{ env.RUN_ID }}/model" --name "submission"
 
       # Login to Docker Hub
       - name: Log in to Docker Hub
