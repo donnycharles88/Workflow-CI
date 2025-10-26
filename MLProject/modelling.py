@@ -54,7 +54,7 @@ def train_model_with_tuning():
         'n_estimators': [100, 150, 200],
         'max_depth': [10, 20, 30]
     }
-    
+
     # Start run manually without autolog
     with mlflow.start_run(run_name="RandomForest_ComputerPrice", nested=True):
         # Manual logging of parameters (no autolog)
@@ -102,6 +102,11 @@ def train_model_with_tuning():
         mlflow.sklearn.save_model(sk_model=best_model, path=model_path)
         mlflow.log_artifacts(model_path, artifact_path="model")
 
+        
+        # Save run_id to file
+        with open("run_id.txt", "w") as f:
+            f.write(mlflow.active_run().info.run_id)
+
         # Residual plot
         residuals = y_test - y_pred
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -116,6 +121,8 @@ def train_model_with_tuning():
         plt.close(fig)
 
         mlflow.log_artifact(plot_filename, artifact_path="model")
+        
+
 
 # Run the training function
 if __name__ == "__main__":
