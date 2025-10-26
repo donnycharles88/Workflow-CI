@@ -56,7 +56,6 @@ def train_model_with_tuning():
     }
 
     # MLflow experiment setup
-    mlflow.set_tracking_uri("file:///home/runner/work/Workflow-CI/Workflow-CI/mlruns")
     mlflow.set_experiment("Computer Prices")
 
     # Start run manually without autolog
