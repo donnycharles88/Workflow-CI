@@ -60,7 +60,7 @@ def train_model_with_tuning():
     mlflow.set_experiment("Computer Prices")
 
     # Start run manually without autolog
-    with mlflow.start_run(run_name="RandomForest_ComputerPrice"):
+    with mlflow.start_run(run_name="RandomForest_ComputerPrice", run_id=None):
         # Manual logging of parameters (no autolog)
         mlflow.log_param("model", "RandomForestRegressor")
         mlflow.log_param("random_state", 42)
