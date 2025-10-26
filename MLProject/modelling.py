@@ -60,9 +60,15 @@ def train_model_with_tuning(n_estimators=100, max_depth=10, dataset="processed_d
     mlflow.set_tracking_uri("file://./mlruns")
     mlflow.set_experiment("Computer Prices")
 
-    # Start run (no run_id specified to avoid conflicts)
-    with mlflow.start_run(run_name="RandomForest_ComputerPrice"):
+    # Inside train_model_with_tuning
+    if mlflow.active_run():
+        print("Using existing MLflow run")
+    else:
+        print("Starting new MLflow run")
+        mlflow.start_run(run_name="RandomForest_ComputerPrice")
+    with mlflow.start_run(nested=True) if mlflow.active_run() else mlflow.start_run(run_name="RandomForest_ComputerPrice"):
         print(f"Active Run ID: {mlflow.active_run().info.run_id}")
+
 
         # Manual logging of parameters
         mlflow.log_param("model", "RandomForestRegressor")
