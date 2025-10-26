@@ -32,15 +32,15 @@ jobs:
           cd MLProject
           mlflow run . --env-manager=local
       # Get latest run_id
-      - name: Get latest MLflow run_id
+      - name: Ambil run_id dari file
         run: |
-          RUN_ID=$(ls -td mlruns/0/*/ | head -n 1 | cut -d'/' -f3)
+          RUN_ID=$(cat MLProject/run_id.txt)
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "Latest run_id: $RUN_ID"
       # Build Docker Model
       - name: Build Docker Model
         run: |
-          mlflow models build-docker --model-uri "runs:/$RUN_ID/model" --name "submission" 
+          mlflow models build-docker --model-uri "runs:/${{ env.RUN_ID }}/model" --name "submission" 
 
       # Login to Docker Hub
       - name: Log in to Docker Hub
