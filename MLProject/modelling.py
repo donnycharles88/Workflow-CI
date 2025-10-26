@@ -22,12 +22,12 @@ def create_timestamped_path(base_name):
     return f"{base_name}_{timestamp}"
 
 # Main training function
-def train_model_with_tuning():
+def train_model_with_tuning(n_estimators=100, max_depth=10, dataset="processed_dataset.csv"):
     warnings.filterwarnings("ignore")
     np.random.seed(42)
 
     # Load dataset
-    file_path = "processed_dataset.csv"
+    file_path = dataset
     if not os.path.exists(file_path):
         print(f"❌ Dataset tidak ditemukan di path: {file_path}")
         return
@@ -51,28 +51,29 @@ def train_model_with_tuning():
 
     # Define parameter grid for tuning
     param_grid = {
-        'n_estimators': [100, 150, 200],
-        'max_depth': [10, 20, 30]
+        'n_estimators': [n_estimators, n_estimators + 50, n_estimators + 100],
+        'max_depth': [max_depth, max_depth + 10, max_depth + 20]
     }
 
-    # Set tracking URI
-    mlflow.set_tracking_uri("file:///home/runner/work/Workflow-CI/Workflow-CI/mlruns")
+    # MLflow experiment setup
+    # Use relative path for tracking URI to avoid hardcoding
+    mlflow.set_tracking_uri("file://./mlruns")
+    mlflow.set_experiment("Computer Prices")
 
-    # Create experiment (if not exists)
-    try:
-        mlflow.set_experiment("Computer Prices")
-    except Exception as e:
-        print(f"⚠️ Experiment creation failed: {e}")
+    # Start run (no run_id specified to avoid conflicts)
+    with mlflow.start_run(run_name="RandomForest_ComputerPrice"):
+        print(f"Active Run ID: {mlflow.active_run().info.run_id}")
 
-    # ✅ START THE RUN MANUALLY AND FORCES A NEW ONE
-    with mlflow.start_run(run_name="RandomForest_ComputerPrice", run_id=None):
-        # Now log parameters and metrics safely
+        # Manual logging of parameters
         mlflow.log_param("model", "RandomForestRegressor")
         mlflow.log_param("random_state", 42)
         mlflow.log_param("cv_folds", 3)
         mlflow.log_param("scoring_metric", "r2")
+        mlflow.log_param("n_estimators_input", n_estimators)
+        mlflow.log_param("max_depth_input", max_depth)
+        mlflow.log_param("dataset", dataset)
 
-        # GridSearchCV
+        # GridSearchCV for hyperparameter tuning
         grid_search = GridSearchCV(
             estimator=RandomForestRegressor(random_state=42),
             param_grid=param_grid,
@@ -85,7 +86,7 @@ def train_model_with_tuning():
         best_model = grid_search.best_estimator_
         best_params = grid_search.best_params_
 
-        # Log best params
+        # Manually log best parameters
         mlflow.log_param("best_n_estimators", best_params['n_estimators'])
         mlflow.log_param("best_max_depth", best_params['max_depth'])
 
@@ -95,7 +96,7 @@ def train_model_with_tuning():
         mse = mean_squared_error(y_test, y_pred)
         r2 = r2_score(y_test, y_pred)
 
-        # Log metrics
+        # Manually log metrics
         mlflow.log_metric("MAE", mae)
         mlflow.log_metric("MSE", mse)
         mlflow.log_metric("R2", r2)
@@ -125,6 +126,10 @@ def train_model_with_tuning():
         plt.close(fig)
 
         mlflow.log_artifact(plot_filename, artifact_path="model")
-# Run the training function
+
 if __name__ == "__main__":
-    train_model_with_tuning()
+    import sys
+    n_estimators = int(sys.argv[1]) if len(sys.argv) > 1 else 100
+    max_depth = int(sys.argv[2]) if len(sys.argv) > 2 else 10
+    dataset = sys.argv[3] if len(sys.argv) > 3 else "processed_dataset.csv"
+    train_model_with_tuning(n_estimators, max_depth, dataset)
