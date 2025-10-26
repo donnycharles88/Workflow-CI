@@ -54,10 +54,7 @@ def train_model_with_tuning():
         'n_estimators': [100, 150, 200],
         'max_depth': [10, 20, 30]
     }
-
-    # MLflow experiment setup
-    mlflow.set_experiment("Computer Prices")
-
+    
     # Start run manually without autolog
     with mlflow.start_run(run_name="RandomForest_ComputerPrice", nested=True):
         # Manual logging of parameters (no autolog)
