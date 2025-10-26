@@ -106,7 +106,8 @@ def train_model_with_tuning():
         # Save run_id to file
         with open("run_id.txt", "w") as f:
             f.write(mlflow.active_run().info.run_id)
-
+        mlflow.log_artifact("run_id.txt", artifact_path="run_info")
+        print(f"RUN_ID={mlflow.active_run().info.run_id}")
         # Residual plot
         residuals = y_test - y_pred
         fig, ax = plt.subplots(figsize=(8, 6))
