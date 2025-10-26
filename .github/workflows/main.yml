@@ -30,7 +30,7 @@ jobs:
       - name: Run MLflow Project
         run: |
           cd MLProject
-          mlflow run MLProject --env-manager=local
+          mlflow run . --env-manager=local
       # Get latest run_id
       - name: Get latest MLflow run_id
         run: |
