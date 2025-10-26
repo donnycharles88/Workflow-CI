@@ -30,16 +30,17 @@ jobs:
       - name: Run MLflow Project
         run: |
           cd MLProject
-          mlflow run . --env-manager=local
+          mlflow run . --env-manager=local | tee modelling.log
       - name: Copy run_id artifact
         run: |
           cp /tmp/*/run_info/run_id.txt MLProject/run_id.txt || echo "run_id.txt not found"
       # Get latest run_id
-      - name: Ambil run_id dari file
+      
+      - name: Ambil run_id dari log
         run: |
-          RUN_ID=$(cat MLProject/run_id.txt)
+          RUN_ID=$(grep -oP 'RUN_ID=\K[0-9a-f]+' MLProject/modelling.log)
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-          echo "Latest run_id: $RUN_ID"
+
       
       # Build Docker Model
       - name: Build Docker Model
