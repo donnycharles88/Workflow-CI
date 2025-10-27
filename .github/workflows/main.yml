@@ -15,6 +15,7 @@ jobs:
     # di lingkungan GitHub Actions.
     env:
       MLFLOW_TRACKING_URI: ${{ github.workspace }}/MLProject/mlruns
+      DOCKER_IMAGE_NAME: workflow
 
     steps:
       - name: Checkout repository
@@ -40,30 +41,44 @@ jobs:
         run: |
           cd MLProject
           # Mengganti 'tee' dengan redirect sederhana untuk mencegah masalah buffering
-          mlflow run . --env-manager=local > modelling.log
+          mlflow run . --env-manager=local > modelling.log 2>&1
+          tail -n 200 modelling.log || true
           mv modelling.log ..
 
       # Ambil run_id dari log yang sudah dipindahkan ke root
       - name: Ambil run_id dari log
+        id: get_runid
         run: |
           RUN_ID=$(grep -oP 'RUN_ID=\K[0-9a-f]+' modelling.log)
-          if [ -z "$RUN_ID" ]; then
-            echo "❌ Gagal mendapatkan RUN_ID dari log."
+          if [ -f "MLProject/run_id.txt" ]; then
+            RUN_ID=$(cat MLProject/run_id.txt)
+          elif [ -f "run_id.txt" ]; then
+            RUN_ID=$(cat run_id.txt)
+          else
+            RUN_ID=$(grep -oP 'RUN_ID=\K[0-9a-f]+' modelling.log || true)
+          fi
+            echo "❌ Gagal mendapatkan RUN_ID. Isi direktori:" 
+            ls -la
+            echo "Coba lihat MLProject/mlruns:"
+            ls -la MLProject/mlruns || true
             exit 1
           fi
+
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "Run ID berhasil diambil: $RUN_ID"
-
+          echo "::set-output name=run_id::$RUN_ID"
+            
       # Build Docker Model
       - name: Build Docker Model
         # MLFLOW_TRACKING_URI yang absolut sudah disetel.
         run: |
-          if [ -z "${{ env.RUN_ID }}" ]; then
+          if [ -z "$RUN_ID" ]; then
             echo "❌ RUN_ID kosong, tidak bisa build Docker model"
             exit 1
           fi
+          echo "Membangun docker image dari runs:/$RUN_ID/model"
           # Perintah ini sekarang harus berhasil menemukan Run ID
-          mlflow models build-docker --model-uri "runs:/${{ env.RUN_ID }}/model" --name "submission"
+          mlflow models build-docker --model-uri "runs:/$RUN_ID/model" --name "${DOCKER_IMAGE_NAME}"
 
       # Login to Docker Hub
       - name: Log in to Docker Hub
@@ -81,3 +96,21 @@ jobs:
       - name: Push Docker Image
         run: |
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/submission:latest
+          
+      - name: Upload artefak (model, log, dan mlruns)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-artifacts
+          path: |
+            MLProject/mlruns/
+            modelling.log
+            
+      - name: Simpan tautan Docker Hub sebagai artefak
+        run: |
+          echo "Docker Hub URL: https://hub.docker.com/r/${{ secrets.DOCKER_HUB_USERNAME }}/submission" > docker_link.txt
+
+      - name: Upload Docker Hub link
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-hub-link
+          path: docker_link.txt
