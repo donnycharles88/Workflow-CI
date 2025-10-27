@@ -76,14 +76,12 @@ jobs:
             
       # Build Docker Model
       - name: Build Docker Model
-        # MLFLOW_TRACKING_URI yang absolut sudah disetel.
         run: |
           if [ -z "$RUN_ID" ]; then
             echo "❌ RUN_ID kosong, tidak bisa build Docker model"
             exit 1
           fi
           echo "Membangun docker image dari runs:/$RUN_ID/model"
-          # Perintah ini sekarang harus berhasil menemukan Run ID
           mlflow models build-docker --model-uri "runs:/$RUN_ID/model" --name "${DOCKER_IMAGE_NAME}"
 
       # Login to Docker Hub
@@ -93,15 +91,15 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      # Tag the Docker image
+     # Tag the Docker image (gunakan nama yang sama seperti DOCKER_IMAGE_NAME)
       - name: Tag Docker Image
         run: |
-          docker tag submission ${{ secrets.DOCKER_HUB_USERNAME }}/submission:latest
+          docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
 
-      # Push Docker image :
+     # Push Docker image
       - name: Push Docker Image
         run: |
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/submission:latest
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
           
       - name: Upload artefak (model, log, dan mlruns)
         uses: actions/upload-artifact@v4
