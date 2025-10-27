@@ -9,6 +9,13 @@ on:
 jobs:
   build-train:
     runs-on: ubuntu-latest
+    
+    # Set MLFLOW_TRACKING_URI menggunakan path absolut dari workspace.
+    # Ini adalah cara yang paling andal untuk memastikan MLflow dapat menemukan folder 'mlruns' 
+    # di lingkungan GitHub Actions.
+    env:
+      MLFLOW_TRACKING_URI: ${{ github.workspace }}/MLProject/mlruns
+      DOCKER_IMAGE_NAME: workflow
 
     steps:
       - name: Checkout repository
@@ -18,38 +25,60 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.12.7"
-      # Check Env Variables
+
       - name: Check Env
         run: |
+          echo "Tracking URI: ${{ env.MLFLOW_TRACKING_URI }}"
           echo $CSV_URL
           
       - name: Install dependencies
         run: |
           pip install mlflow pandas scikit-learn numpy
 
-      - name: Run MLflow Project
+      - name: Run MLflow Project (Training & Logging)
+        # Menjalankan dari direktori MLProject/ akan membuat data di lokasi 
+        # yang ditunjuk oleh MLFLOW_TRACKING_URI yang baru (menggunakan path absolut).
         run: |
           cd MLProject
-          mlflow run . --env-manager=local | tee modelling.log
-      - name: Copy run_id artifact
-        run: |
-          cp /tmp/*/run_info/run_id.txt MLProject/run_id.txt || echo "run_id.txt not found"
-      # Get latest run_id
-      
-      - name: Ambil run_id dari log
-        run: |
-          RUN_ID=$(grep -oP 'RUN_ID=\K[0-9a-f]+' MLProject/modelling.log)
-          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          # Mengganti 'tee' dengan redirect sederhana untuk mencegah masalah buffering
+          mlflow run . --env-manager=local > modelling.log 2>&1
+          tail -n 200 modelling.log || true
+          mv modelling.log ..
 
-      
+      # Ambil run_id dari log yang sudah dipindahkan ke root
+      - name: Ambil run_id dari log
+        id: get_runid
+        run: |
+          RUN_ID=$(grep -oP 'RUN_ID=\K[0-9a-f]+' modelling.log)
+          if [ -f "MLProject/run_id.txt" ]; then
+            RUN_ID=$(cat MLProject/run_id.txt)
+          elif [ -f "run_id.txt" ]; then
+            RUN_ID=$(cat run_id.txt)
+          else
+            RUN_ID=$(grep -oP 'RUN_ID=\K[0-9a-f]+' modelling.log || true)
+          fi
+            echo "❌ Gagal mendapatkan RUN_ID. Isi direktori:" 
+            ls -la
+            echo "Coba lihat MLProject/mlruns:"
+            ls -la MLProject/mlruns || true
+            exit 1
+          fi
+
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "Run ID berhasil diambil: $RUN_ID"
+          echo "::set-output name=run_id::$RUN_ID"
+            
       # Build Docker Model
       - name: Build Docker Model
+        # MLFLOW_TRACKING_URI yang absolut sudah disetel.
         run: |
-          if [ -z "${{ env.RUN_ID }}" ]; then
+          if [ -z "$RUN_ID" ]; then
             echo "❌ RUN_ID kosong, tidak bisa build Docker model"
             exit 1
           fi
-          mlflow models build-docker --model-uri "runs:/${{ env.RUN_ID }}/model" --name "submission"
+          echo "Membangun docker image dari runs:/$RUN_ID/model"
+          # Perintah ini sekarang harus berhasil menemukan Run ID
+          mlflow models build-docker --model-uri "runs:/$RUN_ID/model" --name "${DOCKER_IMAGE_NAME}"
 
       # Login to Docker Hub
       - name: Log in to Docker Hub
@@ -63,7 +92,25 @@ jobs:
         run: |
           docker tag submission ${{ secrets.DOCKER_HUB_USERNAME }}/submission:latest
 
-      # Push Docker image to Docker Hub
+      # Push Docker image :
       - name: Push Docker Image
         run: |
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/submission:latest
+          
+      - name: Upload artefak (model, log, dan mlruns)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-artifacts
+          path: |
+            MLProject/mlruns/
+            modelling.log
+            
+      - name: Simpan tautan Docker Hub sebagai artefak
+        run: |
+          echo "Docker Hub URL: https://hub.docker.com/r/${{ secrets.DOCKER_HUB_USERNAME }}/submission" > docker_link.txt
+
+      - name: Upload Docker Hub link
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-hub-link
+          path: docker_link.txt
