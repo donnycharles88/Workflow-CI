@@ -49,24 +49,30 @@ jobs:
       - name: Ambil run_id dari log
         id: get_runid
         run: |
-          RUN_ID=$(grep -oP 'RUN_ID=\K[0-9a-f]+' modelling.log)
+          echo "📄 Isi potongan modelling.log:"
+          tail -n 20 modelling.log || true
+      
+          # Ambil baris yang berisi RUN_ID= dan potong nilainya
+          RUN_ID=$(grep -Eo "RUN_ID=[a-f0-9]+" modelling.log | head -n 1 | cut -d'=' -f2)
+      
+          # Jika masih kosong, coba cari file lain (fallback)
           if [ -f "MLProject/run_id.txt" ]; then
             RUN_ID=$(cat MLProject/run_id.txt)
           elif [ -f "run_id.txt" ]; then
             RUN_ID=$(cat run_id.txt)
-          else
-            RUN_ID=$(grep -oP 'RUN_ID=\K[0-9a-f]+' modelling.log || true)
           fi
+      
+          if [ -z "$RUN_ID" ]; then
             echo "❌ Gagal mendapatkan RUN_ID. Isi direktori:" 
             ls -la
             echo "Coba lihat MLProject/mlruns:"
             ls -la MLProject/mlruns || true
             exit 1
           fi
-
+      
+          echo "✅ RUN_ID ditemukan: $RUN_ID"
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-          echo "Run ID berhasil diambil: $RUN_ID"
-          echo "::set-output name=run_id::$RUN_ID"
+
             
       # Build Docker Model
       - name: Build Docker Model
