@@ -21,6 +21,9 @@ def create_timestamped_path(base_name):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return f"{base_name}_{timestamp}"
 
+mlflow_tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", os.path.join(os.getcwd(), "mlruns"))
+mlflow.set_tracking_uri(mlflow_tracking_uri)
+print(f"Using MLFLOW_TRACKING_URI = {mlflow_tracking_uri}")
 # Main training function
 def train_model_with_tuning():
     warnings.filterwarnings("ignore")
@@ -56,7 +59,7 @@ def train_model_with_tuning():
     }
 
     # Start run manually without autolog
-    with mlflow.start_run(run_name="RandomForest_ComputerPrice", nested=True):
+    with mlflow.start_run(run_name="RandomForest_ComputerPrice"):
         # Manual logging of parameters (no autolog)
         mlflow.log_param("model", "RandomForestRegressor")
         mlflow.log_param("random_state", 42)
@@ -102,6 +105,8 @@ def train_model_with_tuning():
         mlflow.sklearn.save_model(sk_model=best_model, path=model_path)
         mlflow.log_artifacts(model_path, artifact_path="model")
 
+        # setelah menyimpan model & log artifact:
+        run_id = mlflow.active_run().info.run_id
         
         # Save run_id to file
         with open("run_id.txt", "w") as f:
